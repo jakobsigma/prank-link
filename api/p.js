@@ -28,7 +28,9 @@ function fromBase64Url(str) {
   return Buffer.from(padded, 'base64').toString('utf8');
 }
 
-export default function handler(req, res) {
+import { kv } from '@vercel/kv';
+
+export default async function handler(req, res) {
   const DEFAULTS = {
     title: "You've been selected!",
     desc: 'Click to claim your exclusive reward.',
@@ -39,7 +41,12 @@ export default function handler(req, res) {
 
   let data = { ...DEFAULTS };
   try {
-    if (req.query.d) {
+    if (req.query.id) {
+      // Short link — look up in KV
+      const stored = await kv.get(`p:${req.query.id}`);
+      if (stored) data = { ...DEFAULTS, ...stored };
+    } else if (req.query.d) {
+      // Legacy long URL fallback
       data = { ...DEFAULTS, ...JSON.parse(fromBase64Url(req.query.d)) };
     }
   } catch (e) {

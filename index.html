@@ -570,43 +570,70 @@
     }
   }
 
-  function toBase64Url(str) {
-    return btoa(unescape(encodeURIComponent(str)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  }
-
-  function generate() {
+  async function generate() {
     const data = {
       title: get('f-title').value.trim() || DEFAULTS.title,
-      desc: get('f-desc').value.trim() || DEFAULTS.desc,
-      img: get('f-img').value.trim(),
-      site: get('f-site').value.trim() || DEFAULTS.site,
+      desc:  get('f-desc').value.trim()  || DEFAULTS.desc,
+      img:   get('f-img').value.trim(),
+      site:  get('f-site').value.trim()  || DEFAULTS.site,
       video: get('f-video').value.trim() || DEFAULTS.video,
     };
 
-    const encoded = toBase64Url(JSON.stringify(data));
-    const base = window.location.origin;
-    const link = `${base}/p?d=${encoded}`;
+    const btn = document.querySelector('.btn-generate');
+    btn.textContent = 'Generating...';
+    btn.disabled = true;
 
-    get('link-box').textContent = link;
-    get('preview-link-text').textContent = link;
-    get('preview-link-text').href = link;
-    get('open-link').href = link;
+    try {
+      const res = await fetch('/api/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const { id } = await res.json();
+      const link = `${window.location.origin}/p/${id}`;
 
-    const out = get('output');
-    out.classList.add('visible');
-    out.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      get('link-box').textContent = link;
+      get('preview-link-text').textContent = link;
+      get('preview-link-text').href = link;
+      get('open-link').href = link;
+
+      const out = get('output');
+      out.classList.add('visible');
+      out.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (e) {
+      alert('Failed to generate link — make sure you\'re on the live site.');
+    } finally {
+      btn.textContent = 'Generate Prank Link';
+      btn.disabled = false;
+    }
   }
 
   function copyLink() {
     const link = get('link-box').textContent;
-    if (link === '—') return;
-    navigator.clipboard.writeText(link).then(() => {
-      const btn = get('copy-btn');
+    if (!link || link === '—') return;
+    const btn = get('copy-btn');
+
+    const finish = () => {
       btn.textContent = 'Copied!';
       btn.classList.add('copied');
       setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2200);
-    });
+    };
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(link).then(finish).catch(() => fallbackCopy(link, finish));
+    } else {
+      fallbackCopy(link, finish);
+    }
+  }
+
+  function fallbackCopy(text, cb) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); cb(); } catch(e) {}
+    document.body.removeChild(ta);
   }
 </script>
 </body>
